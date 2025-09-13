@@ -1,26 +1,30 @@
-﻿using RabbitMQ.Client;
-using System.Text;
+﻿using MassTransit;
+using Contracts;
 
-var factory = new ConnectionFactory { HostName = "localhost" };
-using var connection = await factory.CreateConnectionAsync();
-using var channel = await connection.CreateChannelAsync();
-
-await channel.QueueDeclareAsync(queue: "task_queue", durable: true, exclusive: false,
-autoDelete: false, arguments: null);
-
-var message = GetMessage(args);
-var body = Encoding.UTF8.GetBytes(message);
-
-var properties = new BasicProperties
+var busControl = Bus.Factory.CreateUsingRabbitMq(cfg =>
 {
-    Persistent = true
-};
+    cfg.Host("localhost", "/", h =>
+    {
+        h.Username("guest");
+        h.Password("guest");
+    });
+});
 
-await channel.BasicPublishAsync(exchange: string.Empty, routingKey: "task_queue", mandatory: true,
-basicProperties: properties, body: body);
-Console.WriteLine($" [x] Sent {message}");
+await busControl.StartAsync();
 
-static string GetMessage(string[] args)
+try
 {
-    return ((args.Length > 0) ? string.Join(" ", args) : "Hello World!");
+    var workflowId = Guid.NewGuid();
+    Console.WriteLine($"Starting new workflow with WorkflowId: {workflowId}");
+
+    await busControl.Publish(new StartWorkflowCommand(workflowId));
+
+    Console.WriteLine("Workflow command published successfully");
+
+    // Wait a moment for the message to be sent
+    await Task.Delay(2000);
+}
+finally
+{
+    await busControl.StopAsync();
 }

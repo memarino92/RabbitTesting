@@ -1,35 +1,25 @@
-﻿using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
-using System.Text;
+﻿using MassTransit;
+using Microsoft.Extensions.Hosting;
+using Worker;
 
-var factory = new ConnectionFactory { HostName = "localhost" };
-using var connection = await factory.CreateConnectionAsync();
-using var channel = await connection.CreateChannelAsync();
+var builder = Host.CreateApplicationBuilder(args);
 
-await channel.QueueDeclareAsync(queue: "task_queue", durable: true, exclusive: false,
-autoDelete: false, arguments: null);
-
-await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false);
-
-Console.WriteLine(" [*] Waiting for messages.");
-
-var consumer = new AsyncEventingBasicConsumer(channel);
-consumer.ReceivedAsync += async (model, ea) =>
+builder.Services.AddMassTransit(x =>
 {
-    byte[] body = ea.Body.ToArray();
-    var message = Encoding.UTF8.GetString(body);
-    Console.WriteLine($" [x] Received {message}");
+    x.AddConsumer<StartWorkflowConsumer>();
+    x.AddConsumer<Step1Consumer>();
+    x.AddConsumer<Step2Consumer>();
+    x.AddConsumer<Step3Consumer>();
+    x.AddConsumer<Step4Consumer>();
 
-    int dots = message.Split('.').Length - 1;
-    await Task.Delay(dots * 1000);
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "/");
 
-    Console.WriteLine(" [x] Done");
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
-    // here channel could also be accessed as ((AsyncEventingBasicConsumer)sender).Channel
-    await channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false);
-};
+var host = builder.Build();
 
-await channel.BasicConsumeAsync("task_queue", autoAck: false, consumer: consumer);
-
-Console.WriteLine(" Press [enter] to exit.");
-Console.ReadLine();
+await host.RunAsync();
