@@ -4,42 +4,102 @@ using Microsoft.Extensions.DependencyInjection;
 using Worker;
 using Contracts;
 using Saga;
+using System;
+
+// Create a unique identifier for this worker instance
+var workerInstanceId = Guid.NewGuid().ToString("N").Substring(0, 8);
+Console.WriteLine($"Starting worker with instance ID: {workerInstanceId}");
 
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddMassTransit(x =>
 {
-    // Add the state machine saga with explicit endpoint naming
+    // Configure the Saga with a Redis repository for distributed state
     x.AddSagaStateMachine<WorkflowStateMachine, WorkflowState>()
-        .InMemoryRepository()
-        .Endpoint(e => e.Name = "workflow-saga");
+        .RedisRepository(r =>
+        {
+            r.DatabaseConfiguration("localhost");
+            r.KeyPrefix = "workflow";
 
-    // Add the StartWorkflowConsumer with explicit endpoint naming
+            // Add optimistic concurrency to prevent conflicts
+            r.ConcurrencyMode = ConcurrencyMode.Optimistic;
+        })
+        // The saga must use a single queue name across all instances
+        .Endpoint(e =>
+        {
+            e.Name = "workflow-saga";
+            // Only process one message at a time for the saga
+            e.PrefetchCount = 1;
+            e.ConcurrentMessageLimit = 1;
+            // Don't use temporary queues
+            e.Temporary = false;
+        });
+
+    // Configure activity consumers as competing consumers (multiple instances share same queue)
+    // All instances will consume from the same queue, but each message will be processed only once
+
+    // Add the StartWorkflowConsumer
     x.AddConsumer<StartWorkflowConsumer>()
-        .Endpoint(e => e.Name = "start-workflow");
+        .Endpoint(e =>
+        {
+            e.Name = "start-workflow";
+            e.PrefetchCount = 16;
+            e.Temporary = false;  // Don't use temporary queues
+        });
 
-    // Add ONLY the direct step consumers - remove all others
+    // Add step consumers with proper concurrency
     x.AddConsumer<DirectStep1Consumer>()
-        .Endpoint(e => e.Name = "step1-activity");
+        .Endpoint(e =>
+        {
+            e.Name = "step1-activity";
+            e.PrefetchCount = 16;
+            e.Temporary = false;
+        });
 
     x.AddConsumer<DirectStep2Consumer>()
-        .Endpoint(e => e.Name = "step2-activity");
+        .Endpoint(e =>
+        {
+            e.Name = "step2-activity";
+            e.PrefetchCount = 16;
+            e.Temporary = false;
+        });
 
     x.AddConsumer<DirectStep3Consumer>()
-        .Endpoint(e => e.Name = "step3-activity");
+        .Endpoint(e =>
+        {
+            e.Name = "step3-activity";
+            e.PrefetchCount = 16;
+            e.Temporary = false;
+        });
 
     x.AddConsumer<DirectStep4Consumer>()
-        .Endpoint(e => e.Name = "step4-activity");
+        .Endpoint(e =>
+        {
+            e.Name = "step4-activity";
+            e.PrefetchCount = 16;
+            e.Temporary = false;
+        });
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host("localhost", "/");
+        cfg.Host("localhost", "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
 
         // Enable publishing directly to queue
         cfg.PublishTopology.BrokerTopologyOptions = PublishBrokerTopologyOptions.MaintainHierarchy;
 
-        // Configure the endpoints
-        cfg.ConfigureEndpoints(context);
+        // Set retry policy for consumers
+        cfg.UseMessageRetry(r => r.Immediate(3));
+
+        // For multiple instances, use a unique discriminator for publisher endpoints
+        // but shared consumer endpoints
+        cfg.ConfigureEndpoints(context, new KebabCaseEndpointNameFormatter(workerInstanceId, false));
+
+        // Log message consumption
+        cfg.UseConsumeFilter(typeof(LoggingConsumeFilter<>), context);
     });
 });
 

@@ -2,10 +2,13 @@ using MassTransit;
 
 namespace Contracts;
 
-public class WorkflowState : SagaStateMachineInstance
+public class WorkflowState : SagaStateMachineInstance, ISagaVersion
 {
     public Guid CorrelationId { get; set; }
     public string CurrentState { get; set; } = default!;
+
+    // Required for ISagaVersion
+    public int Version { get; set; }
 
     // The WorkflowId to correlate events
     public Guid WorkflowId { get; set; }
