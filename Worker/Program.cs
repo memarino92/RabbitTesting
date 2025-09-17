@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Worker;
 using Contracts;
 using Saga;
+using StackExchange.Redis;
 
 // Create a unique identifier for this worker instance
 var workerInstanceId = Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -16,6 +17,13 @@ builder.Services.AddLogging(logging =>
 {
     logging.AddConsole();
 });
+
+// Configure Redis connection
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+    ConnectionMultiplexer.Connect("localhost"));
+
+// Register the result store
+builder.Services.AddSingleton<IResultStore, RedisResultStore>();
 
 builder.Services.AddMassTransit(x =>
 {

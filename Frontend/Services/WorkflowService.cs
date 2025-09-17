@@ -23,6 +23,12 @@ public class WorkflowStatus
     public bool IsCompleted { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? CompletionTime { get; set; }
+    
+    // Step results - these will be populated from Redis
+    public int? Step1Result { get; set; }
+    public int? Step2Result { get; set; }
+    public int? Step3Result { get; set; }
+    public int? Step4Result { get; set; }
 }
 
 public class WorkflowService : IWorkflowService
@@ -34,13 +40,13 @@ public class WorkflowService : IWorkflowService
     {
         _publishEndpoint = publishEndpoint;
         _workflowTracker = workflowTracker;
-        
+
         // Subscribe to the tracker's status change events
         _workflowTracker.WorkflowStatusChanged += (id, status) => WorkflowStatusChanged?.Invoke(id, status);
     }
 
     public ConcurrentDictionary<Guid, WorkflowStatus> WorkflowStatuses => _workflowTracker.WorkflowStatuses;
-    
+
     public event Action<Guid, WorkflowStatus>? WorkflowStatusChanged;
 
     public async Task StartWorkflow()
@@ -54,8 +60,8 @@ public class WorkflowService : IWorkflowService
         var workflowId = NewId.NextGuid();
 
         // Initialize status tracking for this workflow
-        var status = new WorkflowStatus 
-        { 
+        var status = new WorkflowStatus
+        {
             StartTime = DateTime.UtcNow
         };
         _workflowTracker.WorkflowStatuses[workflowId] = status;
