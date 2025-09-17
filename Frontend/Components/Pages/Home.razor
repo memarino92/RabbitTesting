@@ -10,15 +10,35 @@
 @if (_currentWorkflowId != Guid.Empty)
 {
     <p>Current Workflow ID: @_currentWorkflowId</p>
-    
+
     @if (_currentStatus != null)
     {
         <ul>
             <li>Started: @(_currentStatus.IsStarted ? "Yes" : "No")</li>
-            <li>Step 1 Completed: @(_currentStatus.IsStep1Completed ? "Yes" : "No")</li>
-            <li>Step 2 Completed: @(_currentStatus.IsStep2Completed ? "Yes" : "No")</li>
-            <li>Step 3 Completed: @(_currentStatus.IsStep3Completed ? "Yes" : "No")</li>
-            <li>Step 4 Completed: @(_currentStatus.IsStep4Completed ? "Yes" : "No")</li>
+            <li>Step 1 Completed: @(_currentStatus.IsStep1Completed ? "Yes" : "No")
+                @if (_currentStatus.Step1Result.HasValue)
+                {
+                    <span> Result: @_currentStatus.Step1Result</span>
+                }
+            </li>
+            <li>Step 2 Completed: @(_currentStatus.IsStep2Completed ? "Yes" : "No")
+                @if (_currentStatus.Step2Result.HasValue)
+                {
+                    <span> Result: @_currentStatus.Step2Result</span>
+                }
+            </li>
+            <li>Step 3 Completed: @(_currentStatus.IsStep3Completed ? "Yes" : "No")
+                @if (_currentStatus.Step3Result.HasValue)
+                {
+                    <span> Result: @_currentStatus.Step3Result</span>
+                }
+            </li>
+            <li>Step 4 Completed: @(_currentStatus.IsStep4Completed ? "Yes" : "No")
+                @if (_currentStatus.Step4Result.HasValue)
+                {
+                    <span> Result: @_currentStatus.Step4Result</span>
+                }
+            </li>
             <li>Workflow Completed: @(_currentStatus.IsCompleted ? "Yes" : "No")</li>
         </ul>
     }
@@ -46,7 +66,7 @@
         if (workflowId == _currentWorkflowId)
         {
             _currentStatus = status;
-            
+
             // Notify the component that its state has changed
             InvokeAsync(StateHasChanged);
         }
@@ -57,10 +77,10 @@
         try
         {
             _errorMessage = null;
-            
+
             // Start a new workflow and get its ID
             _currentWorkflowId = await WorkflowService.StartWorkflowAndGetId();
-            
+
             // Get initial status
             if (WorkflowService.WorkflowStatuses.TryGetValue(_currentWorkflowId, out var status))
             {
