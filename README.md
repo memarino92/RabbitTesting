@@ -61,10 +61,21 @@ This project demonstrates a basic workflow orchestrated using a Saga pattern wit
 
 ## Project Structure
 
-- **Contracts:** Contains message contracts (commands and events) and the workflow state
+- **Contracts:** Contains message contracts (commands and events), the workflow state, and shared interfaces like `IResultStore`
 - **Saga:** Contains the state machine that orchestrates the workflow
-- **Worker:** Hosts the saga and the activity consumers
+- **Worker:** Hosts the saga and the activity consumers with Redis-based result storage
 - **NewTask:** Client application that initiates the workflow
+- **Frontend:** Web application for monitoring workflows (available in webapp branch)
+
+## Shared Interfaces
+
+The `Contracts` project contains shared interfaces to ensure consistent APIs across all projects:
+
+- **IResultStore:** Interface for storing and retrieving step results securely outside of the message bus
+  - `Task StoreStepResult(Guid correlationId, string stepName, int result)` - Stores workflow step results
+  - `Task<int?> GetStepResult(Guid correlationId, string stepName)` - Retrieves workflow step results
+
+All projects that need to store or retrieve step results should implement this interface using the same contract.
 
 ## Coding Standards
 
