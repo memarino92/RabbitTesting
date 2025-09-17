@@ -2,10 +2,15 @@
 using Contracts;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-
-Console.WriteLine("Starting the NewTask application...");
+using Microsoft.Extensions.Logging;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Configure logging
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+});
 
 builder.Services.AddMassTransit(x =>
 {
@@ -31,15 +36,18 @@ await host.StartAsync();
 try
 {
     var publishEndpoint = host.Services.GetRequiredService<IPublishEndpoint>();
+    var logger = host.Services.GetRequiredService<ILogger<Program>>();
+
+    logger.LogInformation("Starting the NewTask application...");
 
     var workflowId = Guid.NewGuid();
-    Console.WriteLine($"Starting new workflow with WorkflowId: {workflowId}");
+    logger.LogInformation("Starting new workflow with WorkflowId: {WorkflowId}", workflowId);
 
     // Send the command to start the workflow
     await publishEndpoint.Publish(new StartWorkflowCommand(workflowId));
 
-    Console.WriteLine("Workflow command published successfully");
-    Console.WriteLine("Press any key to exit...");
+    logger.LogInformation("Workflow command published successfully");
+    logger.LogInformation("Press any key to exit...");
     Console.ReadKey();
 }
 finally
