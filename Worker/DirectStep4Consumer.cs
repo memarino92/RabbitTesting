@@ -11,7 +11,7 @@ public class DirectStep4Consumer(ILogger<DirectStep4Consumer> logger, IPublishEn
     {
         logger.LogInformation("Executing Step 4 for WorkflowId: {WorkflowId}", context.Message.WorkflowId);
 
-        await Task.Delay(2500);
+        await Task.Delay(1000);
 
         logger.LogInformation("Step 4 completed for WorkflowId: {WorkflowId}", context.Message.WorkflowId);
 

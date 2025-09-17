@@ -1,13 +1,27 @@
 ﻿@page "/"
 @using Frontend.Services
+@using System.Collections.Concurrent
 @inject IWorkflowService WorkflowService
 @rendermode InteractiveServer
+@implements IDisposable
 
 <button @onclick="StartWorkflow">Start Workflow</button>
 
-@if (_showSuccessMessage)
+@if (_currentWorkflowId != Guid.Empty)
 {
-    <p>Workflow started successfully!</p>
+    <p>Current Workflow ID: @_currentWorkflowId</p>
+    
+    @if (_currentStatus != null)
+    {
+        <ul>
+            <li>Started: @(_currentStatus.IsStarted ? "Yes" : "No")</li>
+            <li>Step 1 Completed: @(_currentStatus.IsStep1Completed ? "Yes" : "No")</li>
+            <li>Step 2 Completed: @(_currentStatus.IsStep2Completed ? "Yes" : "No")</li>
+            <li>Step 3 Completed: @(_currentStatus.IsStep3Completed ? "Yes" : "No")</li>
+            <li>Step 4 Completed: @(_currentStatus.IsStep4Completed ? "Yes" : "No")</li>
+            <li>Workflow Completed: @(_currentStatus.IsCompleted ? "Yes" : "No")</li>
+        </ul>
+    }
 }
 
 @if (_errorMessage != null)
@@ -16,23 +30,52 @@
 }
 
 @code {
-    private bool _showSuccessMessage = false;
+    private Guid _currentWorkflowId = Guid.Empty;
+    private WorkflowStatus? _currentStatus;
     private string? _errorMessage = null;
+
+    protected override void OnInitialized()
+    {
+        // Subscribe to workflow status updates
+        WorkflowService.WorkflowStatusChanged += OnWorkflowStatusChanged;
+    }
+
+    private void OnWorkflowStatusChanged(Guid workflowId, WorkflowStatus status)
+    {
+        // Only update UI if it's for the current workflow
+        if (workflowId == _currentWorkflowId)
+        {
+            _currentStatus = status;
+            
+            // Notify the component that its state has changed
+            InvokeAsync(StateHasChanged);
+        }
+    }
 
     private async Task StartWorkflow()
     {
         try
         {
-            _showSuccessMessage = false;
             _errorMessage = null;
-
-            await WorkflowService.StartWorkflow();
-
-            _showSuccessMessage = true;
+            
+            // Start a new workflow and get its ID
+            _currentWorkflowId = await WorkflowService.StartWorkflowAndGetId();
+            
+            // Get initial status
+            if (WorkflowService.WorkflowStatuses.TryGetValue(_currentWorkflowId, out var status))
+            {
+                _currentStatus = status;
+            }
         }
         catch (Exception ex)
         {
             _errorMessage = ex.Message;
         }
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe from workflow status updates
+        WorkflowService.WorkflowStatusChanged -= OnWorkflowStatusChanged;
     }
 }
