@@ -1,12 +1,17 @@
 using Contracts;
 using MassTransit;
+using Microsoft.Extensions.Logging;
 
 namespace Saga;
 
 public class WorkflowStateMachine : MassTransitStateMachine<WorkflowState>
 {
-    public WorkflowStateMachine()
+    private readonly ILogger<WorkflowStateMachine> _logger;
+
+    public WorkflowStateMachine(ILogger<WorkflowStateMachine> logger)
     {
+        _logger = logger;
+
         // Map the CurrentState property to track state
         InstanceState(x => x.CurrentState);
 
@@ -20,7 +25,8 @@ public class WorkflowStateMachine : MassTransitStateMachine<WorkflowState>
         // Log all state transitions and event processing
         this.OnUnhandledEvent(x =>
         {
-            Console.WriteLine($"WARNING: Unhandled event {x.Event.Name} received in state {x.Saga.CurrentState} for workflow {x.Saga.WorkflowId}");
+            _logger.LogWarning("Unhandled event {EventName} received in state {CurrentState} for workflow {WorkflowId}",
+                x.Event.Name, x.Saga.CurrentState, x.Saga.WorkflowId);
             return Task.CompletedTask;
         });
 
@@ -35,7 +41,7 @@ public class WorkflowStateMachine : MassTransitStateMachine<WorkflowState>
                     context.Saga.StartTime = DateTime.UtcNow;
                     context.Saga.Version++; // Increment version for optimistic concurrency
 
-                    Console.WriteLine($"Starting workflow for WorkflowId: {context.Message.WorkflowId}");
+                    _logger.LogInformation("Starting workflow for WorkflowId: {WorkflowId}", context.Message.WorkflowId);
                 })
                 .ThenAsync(context => context.Publish(new Step1Command(context.Message.WorkflowId)))
                 .TransitionTo(Step1Pending)
@@ -48,22 +54,22 @@ public class WorkflowStateMachine : MassTransitStateMachine<WorkflowState>
                     context.Saga.Step1CompletionTime = DateTime.UtcNow;
                     context.Saga.Version++; // Increment version for optimistic concurrency
 
-                    Console.WriteLine($"Step 1 completed for WorkflowId: {context.Message.WorkflowId}, transitioning to Step2Pending");
+                    _logger.LogInformation("Step 1 completed for WorkflowId: {WorkflowId}, transitioning to Step2Pending", context.Message.WorkflowId);
                 })
                 .ThenAsync(context => context.Publish(new Step2Command(context.Message.WorkflowId)))
                 .TransitionTo(Step2Pending),
 
             // Handle duplicate WorkflowStarted events gracefully
             When(WorkflowStarted)
-                .Then(context => Console.WriteLine($"Ignoring duplicate WorkflowStartedEvent for WorkflowId: {context.Message.WorkflowId} in Step1Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate WorkflowStartedEvent for WorkflowId: {WorkflowId} in Step1Pending state", context.Message.WorkflowId)),
 
             // Handle out-of-order completion events
             When(Step2Completed)
-                .Then(context => Console.WriteLine($"Received Step2Completed out of order for WorkflowId: {context.Message.WorkflowId} - ignoring while in Step1Pending")),
+                .Then(context => _logger.LogInformation("Received Step2Completed out of order for WorkflowId: {WorkflowId} - ignoring while in Step1Pending", context.Message.WorkflowId)),
             When(Step3Completed)
-                .Then(context => Console.WriteLine($"Received Step3Completed out of order for WorkflowId: {context.Message.WorkflowId} - ignoring while in Step1Pending")),
+                .Then(context => _logger.LogInformation("Received Step3Completed out of order for WorkflowId: {WorkflowId} - ignoring while in Step1Pending", context.Message.WorkflowId)),
             When(Step4Completed)
-                .Then(context => Console.WriteLine($"Received Step4Completed out of order for WorkflowId: {context.Message.WorkflowId} - ignoring while in Step1Pending"))
+                .Then(context => _logger.LogInformation("Received Step4Completed out of order for WorkflowId: {WorkflowId} - ignoring while in Step1Pending", context.Message.WorkflowId))
         );
 
         During(Step2Pending,
@@ -73,20 +79,20 @@ public class WorkflowStateMachine : MassTransitStateMachine<WorkflowState>
                     context.Saga.Step2CompletionTime = DateTime.UtcNow;
                     context.Saga.Version++; // Increment version for optimistic concurrency
 
-                    Console.WriteLine($"Step 2 completed for WorkflowId: {context.Message.WorkflowId}, transitioning to Step3Pending");
+                    _logger.LogInformation("Step 2 completed for WorkflowId: {WorkflowId}, transitioning to Step3Pending", context.Message.WorkflowId);
                 })
                 .ThenAsync(context => context.Publish(new Step3Command(context.Message.WorkflowId)))
                 .TransitionTo(Step3Pending),
 
             // Handle duplicate or out-of-order events
             When(WorkflowStarted)
-                .Then(context => Console.WriteLine($"Ignoring duplicate WorkflowStartedEvent for WorkflowId: {context.Message.WorkflowId} in Step2Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate WorkflowStartedEvent for WorkflowId: {WorkflowId} in Step2Pending state", context.Message.WorkflowId)),
             When(Step1Completed)
-                .Then(context => Console.WriteLine($"Ignoring duplicate Step1Completed for WorkflowId: {context.Message.WorkflowId} in Step2Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate Step1Completed for WorkflowId: {WorkflowId} in Step2Pending state", context.Message.WorkflowId)),
             When(Step3Completed)
-                .Then(context => Console.WriteLine($"Received Step3Completed out of order for WorkflowId: {context.Message.WorkflowId} - ignoring while in Step2Pending")),
+                .Then(context => _logger.LogInformation("Received Step3Completed out of order for WorkflowId: {WorkflowId} - ignoring while in Step2Pending", context.Message.WorkflowId)),
             When(Step4Completed)
-                .Then(context => Console.WriteLine($"Received Step4Completed out of order for WorkflowId: {context.Message.WorkflowId} - ignoring while in Step2Pending"))
+                .Then(context => _logger.LogInformation("Received Step4Completed out of order for WorkflowId: {WorkflowId} - ignoring while in Step2Pending", context.Message.WorkflowId))
         );
 
         During(Step3Pending,
@@ -96,20 +102,20 @@ public class WorkflowStateMachine : MassTransitStateMachine<WorkflowState>
                     context.Saga.Step3CompletionTime = DateTime.UtcNow;
                     context.Saga.Version++; // Increment version for optimistic concurrency
 
-                    Console.WriteLine($"Step 3 completed for WorkflowId: {context.Message.WorkflowId}, transitioning to Step4Pending");
+                    _logger.LogInformation("Step 3 completed for WorkflowId: {WorkflowId}, transitioning to Step4Pending", context.Message.WorkflowId);
                 })
                 .ThenAsync(context => context.Publish(new Step4Command(context.Message.WorkflowId)))
                 .TransitionTo(Step4Pending),
 
             // Handle duplicate or out-of-order events
             When(WorkflowStarted)
-                .Then(context => Console.WriteLine($"Ignoring duplicate WorkflowStartedEvent for WorkflowId: {context.Message.WorkflowId} in Step3Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate WorkflowStartedEvent for WorkflowId: {WorkflowId} in Step3Pending state", context.Message.WorkflowId)),
             When(Step1Completed)
-                .Then(context => Console.WriteLine($"Ignoring duplicate Step1Completed for WorkflowId: {context.Message.WorkflowId} in Step3Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate Step1Completed for WorkflowId: {WorkflowId} in Step3Pending state", context.Message.WorkflowId)),
             When(Step2Completed)
-                .Then(context => Console.WriteLine($"Ignoring duplicate Step2Completed for WorkflowId: {context.Message.WorkflowId} in Step3Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate Step2Completed for WorkflowId: {WorkflowId} in Step3Pending state", context.Message.WorkflowId)),
             When(Step4Completed)
-                .Then(context => Console.WriteLine($"Received Step4Completed out of order for WorkflowId: {context.Message.WorkflowId} - ignoring while in Step3Pending"))
+                .Then(context => _logger.LogInformation("Received Step4Completed out of order for WorkflowId: {WorkflowId} - ignoring while in Step3Pending", context.Message.WorkflowId))
         );
 
         During(Step4Pending,
@@ -120,20 +126,20 @@ public class WorkflowStateMachine : MassTransitStateMachine<WorkflowState>
                     context.Saga.CompletionTime = DateTime.UtcNow;
                     context.Saga.Version++; // Increment version for optimistic concurrency
 
-                    Console.WriteLine($"Step 4 completed for WorkflowId: {context.Message.WorkflowId}, workflow complete!");
+                    _logger.LogInformation("Step 4 completed for WorkflowId: {WorkflowId}, workflow complete!", context.Message.WorkflowId);
                 })
                 .ThenAsync(context => context.Publish(new WorkflowCompletedEvent(context.Message.WorkflowId)))
                 .Finalize(),
 
             // Handle duplicate events
             When(WorkflowStarted)
-                .Then(context => Console.WriteLine($"Ignoring duplicate WorkflowStartedEvent for WorkflowId: {context.Message.WorkflowId} in Step4Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate WorkflowStartedEvent for WorkflowId: {WorkflowId} in Step4Pending state", context.Message.WorkflowId)),
             When(Step1Completed)
-                .Then(context => Console.WriteLine($"Ignoring duplicate Step1Completed for WorkflowId: {context.Message.WorkflowId} in Step4Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate Step1Completed for WorkflowId: {WorkflowId} in Step4Pending state", context.Message.WorkflowId)),
             When(Step2Completed)
-                .Then(context => Console.WriteLine($"Ignoring duplicate Step2Completed for WorkflowId: {context.Message.WorkflowId} in Step4Pending state")),
+                .Then(context => _logger.LogInformation("Ignoring duplicate Step2Completed for WorkflowId: {WorkflowId} in Step4Pending state", context.Message.WorkflowId)),
             When(Step3Completed)
-                .Then(context => Console.WriteLine($"Ignoring duplicate Step3Completed for WorkflowId: {context.Message.WorkflowId} in Step4Pending state"))
+                .Then(context => _logger.LogInformation("Ignoring duplicate Step3Completed for WorkflowId: {WorkflowId} in Step4Pending state", context.Message.WorkflowId))
         );
 
         // Mark the state machine as complete when finalized

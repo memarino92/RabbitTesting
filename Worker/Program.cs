@@ -1,16 +1,21 @@
 ﻿using MassTransit;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Worker;
 using Contracts;
 using Saga;
-using System;
 
 // Create a unique identifier for this worker instance
 var workerInstanceId = Guid.NewGuid().ToString("N").Substring(0, 8);
-Console.WriteLine($"Starting worker with instance ID: {workerInstanceId}");
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Configure logging
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+});
 
 builder.Services.AddMassTransit(x =>
 {
@@ -105,5 +110,9 @@ builder.Services.AddMassTransit(x =>
 
 var host = builder.Build();
 
-Console.WriteLine("Starting worker...");
+// Get ILogger to log startup
+var logger = host.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Starting worker with instance ID: {WorkerInstanceId}", workerInstanceId);
+logger.LogInformation("Starting worker...");
+
 await host.RunAsync();

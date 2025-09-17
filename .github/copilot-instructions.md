@@ -7,6 +7,7 @@ This is a simple proof of concept for a message-driven workflow application.
 - **Use Latest Features:** Always use the latest C# syntax and language features.
 - **.NET Version:** This project uses a pre-release version of .NET 10. All new and existing projects must target `net10.0` for compatibility.
 - **Use dotnet CLI:** Always prefer using the `dotnet` CLI for managing projects and dependencies (e.g., `dotnet add reference`, `dotnet add package`). Do not manually edit `.csproj` or `.sln` files for these tasks.
+- **File-scoped Namespaces:** Always use file-scoped namespace declarations (`namespace X;`) instead of block-scoped namespaces (`namespace X { ... }`).
 - **Keep Documentation Updated:** Whenever you make changes to the project structure, dependencies, or workflow, update the `README.md` and these instructions to ensure the documentation stays current.
 
 ## Scope of Work

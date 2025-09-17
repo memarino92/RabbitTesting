@@ -66,6 +66,13 @@ This project demonstrates a basic workflow orchestrated using a Saga pattern wit
 - **Worker:** Hosts the saga and the activity consumers
 - **NewTask:** Client application that initiates the workflow
 
+## Coding Standards
+
+- **File-scoped Namespaces:** All C# files must use file-scoped namespace declarations (`namespace X;`) instead of block-scoped namespaces (`namespace X { ... }`).
+- **Latest C# Features:** Always use the latest C# syntax and language features.
+- **.NET 10:** All projects target .NET 10.
+- **Project Management:** Use the `dotnet` CLI for managing projects and dependencies.
+
 ## Troubleshooting
 
 If you encounter any issues with events being processed out of order or duplicated:
