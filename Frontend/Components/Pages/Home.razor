@@ -1,7 +1,38 @@
 ﻿@page "/"
+@using Frontend.Services
+@inject IWorkflowService WorkflowService
+@rendermode InteractiveServer
 
-<PageTitle>Home</PageTitle>
+<button @onclick="StartWorkflow">Start Workflow</button>
 
-<h1>Hello, world!</h1>
+@if (_showSuccessMessage)
+{
+    <p>Workflow started successfully!</p>
+}
 
-Welcome to your new app.
+@if (_errorMessage != null)
+{
+    <p>Error: @_errorMessage</p>
+}
+
+@code {
+    private bool _showSuccessMessage = false;
+    private string? _errorMessage = null;
+
+    private async Task StartWorkflow()
+    {
+        try
+        {
+            _showSuccessMessage = false;
+            _errorMessage = null;
+
+            await WorkflowService.StartWorkflow();
+
+            _showSuccessMessage = true;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}
